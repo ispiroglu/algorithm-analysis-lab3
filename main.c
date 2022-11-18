@@ -6,6 +6,8 @@
 struct Item {
     char key[255];
     char value[255];
+    struct Item *next;
+    int collision;
 } typedef Item;
 
 struct HashTable {
@@ -44,86 +46,172 @@ int hash(const char *key, int length, int m) {
     return hashValue % m;
 }
 
+void printList(Item *head) {
+    while (head != NULL) {
+        printf("\t| %s |\n", head->value);
+        head = head->next;
+    }
+}
+
 void printTable(HashTable hashTable) {
     int i;
     printf("_________________________________\n");
     for (i = 0; i < hashTable.size; i++) {
-        if (hashTable.items[i] != NULL)
-            printf("%d | %s - %s \n", i, hashTable.items[i] -> key, hashTable.items[i] ->value);
+        printf("Idx -> %d \n", i);
+        if (hashTable.items[i] != NULL) {
+            printf("\t |%s| \n", hashTable.items[i]->key);
+            printList(hashTable.items[i]);
+        } else {
+            printf("NULL NULL \n");
+        }
     }
 }
 
-void insert(HashTable hashTable, Item* item, int keyLength) {
-    int idx = hash(item -> key, keyLength, hashTable.size);
+void search(HashTable hashTable, char *key) {
+    int idx = hash(key, strlen(key), hashTable.size);
+    const int constIdx = idx;
+    int flag = 1;
 
-    while(
-            hashTable.items[idx] != NULL &&
-            hashTable.items[idx] -> key != item -> key
-            ) {
+    if (strcmp(hashTable.items[idx]->key, key) == 0)
+        printList(hashTable.items[idx]);
+    else {
         idx++;
-        idx = idx % hashTable.size;
+        do {
+            idx++;
+            idx = idx % hashTable.size;
+            while (idx != constIdx && hashTable.items[idx] == NULL) {
+                idx++;
+                idx = idx % hashTable.size;
+            }
+
+            if (strcmp(hashTable.items[idx]->key, key) == 0) {
+                flag = 0;
+            }
+        } while (idx != constIdx && flag);
+
+        if (idx == constIdx)
+            printf("Bulunamadi \n");
+        else
+            printList(hashTable.items[idx]);
+    }
+}
+
+void errorOnInsert() {
+    int i;
+    for (i = 0; i < 10; i++)
+        printf("KOYACAK HER BULAMADIM\n");
+}
+
+void insert(HashTable hashTable, Item *item) {
+    int idx = hash(item->key, strlen(item->key), hashTable.size);
+    const int constIdx = idx;
+    int flag = 1;
+
+    if (hashTable.items[idx] == NULL)
+        hashTable.items[idx] = item;
+    else if (strcmp(hashTable.items[idx]->key, item->key) == 0) {
+        Item *temp = hashTable.items[idx];
+        hashTable.items[idx] = item;
+        hashTable.items[idx]->next = temp;
+    } else {
+        while (hashTable.items[idx] != NULL &&
+               strcmp(hashTable.items[idx]->key, item->key) != 0 &&
+               flag) {
+            idx++;
+            idx = idx % hashTable.size;
+            if (constIdx == idx)
+                flag = 0;
+        }
+        if (flag) {
+            if (hashTable.items[idx] == NULL) {
+                hashTable.items[idx] = item;
+            } else {
+                Item *temp = hashTable.items[idx];
+                hashTable.items[idx] = item;
+                hashTable.items[idx]->next = temp;
+            }
+        }
     }
 
-    if (hashTable.items[idx] == NULL) {
-        hashTable.items[idx] = item;
-//        printf("INSERTING --- %d | %s - %s \n", idx, hashTable.items[idx] -> key, hashTable.items[idx] ->value);
-//        printf("------------------------- \n");
-    }
+
+    if (!flag)
+        errorOnInsert();
 }
 
 int main() {
 
     FILE *fp;
     fp = fopen("Sample.txt", "r");
-    char line[255], c;
+    char line[255];
     double loadFactor;
-    int count = 0, i;
+    int count = 0, i, flag = 1;
 
-    for (c = getc(fp); c != EOF; c = getc(fp))
-        if (c == '\n') // Increment count if this character is newline
-            count = count + 1;
+    while (fgets(line, sizeof(line), fp) != NULL) {
+        char *ch = NULL;
+        ch = strtok(line, " \r\n");
+        while (ch != NULL) {
+            ch = strtok(NULL, " \r\n");
+            count++;
+        }
+    }
 
     fclose(fp);
 
     count /= 2;
-    printf("Load-Factor? \n");
-    scanf("%lf", &loadFactor);
+    printf("Load-Factor? %d \n", count);
+//    scanf("%lf", &loadFactor);
+    loadFactor = .9;
+
 
     int lfNumber = count / loadFactor;
-//    printf("lfNumber -> %d \n", lfNumber);
     int tableSize = getClosestPrime(lfNumber);
-//    printf("%d \n", tableSize);
 
     HashTable hashTable;
-    hashTable.items = (Item **) calloc(tableSize, sizeof(Item*));
+    hashTable.items = (Item **) calloc(tableSize, sizeof(Item *));
     hashTable.size = tableSize;
-
 
     fp = fopen("Sample.txt", "r");
 
-    // TODO: INSERTLERDEN ONCE TRIM
-    // TODO: KEY VALUE HANGISI HANGISINE CONTROL
-    // TODO: VE VEYA NASIL YAPILIR?
     while (fgets(line, sizeof(line), fp) != NULL) {
-        char buffer[2][255];
-
-        int lengthOfString = strcspn(line, "\n");
+        char buffer[1][255];
 
         if (strstr(line, "https://") != NULL) {
-            strcpy(buffer[1], line);
+            char *value;
+            value = strtok(line, "\r\n");
+            strcpy(buffer[0], value);
         } else {
-            strcpy(buffer[0], line);
-            Item* item = malloc(sizeof(Item));
-            strcpy(item -> key, buffer[0]);
-            strcpy(item -> value, buffer[1]);
-            insert(hashTable, item, lengthOfString);
-        }
 
-//        printf("%d - ", lengthOfString);
-//        printf("%lu \n", hash(line, 10, lengthOfString));
+            char *key = NULL;
+            key = strtok(line, " \r\n");
+            while (key != NULL) {
+
+                Item *item = calloc(1, sizeof(Item));
+                strcpy(item->key, key);
+                strcpy(item->value, buffer[0]);
+                item->collision = 0;
+                insert(hashTable, item);
+                key = strtok(NULL, " \r\n");
+            }
+        }
     }
 
     printTable(hashTable);
+
+    while (flag) {
+        char key[255];
+        fflush(stdin);
+        fflush(stdout);
+        printf("Lutfen aramak istediginiz kelimeyi giriniz. \n");
+        scanf("%s", key);
+
+
+        search(hashTable, key);
+
+        printf("Aramaya devam etmek istiyor musunuz? \n");
+        printf("0 - HAYIR \n");
+        printf("1 - EVET \n");
+        scanf("%d", &flag);
+    }
 
     return 0;
 }
