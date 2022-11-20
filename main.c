@@ -16,6 +16,7 @@ struct HashTable {
 
 struct Link {
     char value[255];
+    int collison;
 } typedef Link;
 
 struct LinkHashTable {
@@ -113,7 +114,7 @@ void search(HashTable hashTable, char *key) {
 void errorOnInsert() {
     int i;
     for (i = 0; i < 10; i++)
-        printf("KOYACAK HER BULAMADIM\n");
+        printf("Error On Insert\n");
 }
 
 int insert(HashTable hashTable, Item *item) {
@@ -159,10 +160,14 @@ int insert(HashTable hashTable, Item *item) {
 
 void insertForLinkHashTable(LinkHashTable table, Link *link) {
     int idx = hash(link->value, strlen(link->value), table.size);
+    int constIdx = idx;
 
     while (table.links[idx] != NULL) {
         idx++;
     }
+    if (constIdx != idx)
+        table.links[constIdx]->collison = 1;
+
     table.links[idx] = link;
 }
 
@@ -185,9 +190,23 @@ void searchForAnd(HashTable table, char *key1, char *key2) {
     while (head != NULL) {
         int idxOfSearch = hash(head->value, strlen(head->value), linkHashTable.size);
 
-        if (linkHashTable.links[idxOfSearch] != NULL) {
+        if (linkHashTable.links[idxOfSearch] != NULL &&
+        strcmp(head->value, linkHashTable.links[idxOfSearch]->value) == 0) {
             printf("%s \n", head->value);
+        } else if ( linkHashTable.links[idxOfSearch] != NULL &&
+                    linkHashTable.links[idxOfSearch]->collison == 1) {
+            int constIdx = idxOfSearch;
+            idxOfSearch++;
+            while ( constIdx != idxOfSearch &&
+                    strcmp(head->value, linkHashTable.links[idxOfSearch]->value) == 0) {
+                idxOfSearch++;
+                idxOfSearch = idxOfSearch % linkHashTable.size;
+            }
+            if (constIdx != idxOfSearch)
+                printf("%s \n", head->value);
         }
+
+
         head = head->next;
     }
 }
@@ -225,12 +244,13 @@ int main() {
 
     FILE *fp;
     fp = fopen("Sample.txt", "r");
-    char line[255];
+    char line[255], tmp[1];
     double loadFactor;
     int count = 0, flag = 1, detailedMode = 0;
 
     printf("Detayli modda calistirmak icin lutfen 1'e basiniz!\n"
            "Normal modda devam etmek icin lutfen 0'a basiniz!\n");
+
     scanf("%d", &detailedMode);
 
     while (fgets(line, sizeof(line), fp) != NULL) {
@@ -245,9 +265,9 @@ int main() {
     fclose(fp);
 
     count /= 2;
-    printf("Load-Factor? %d \n", count);
-//    scanf("%lf", &loadFactor);
-    loadFactor = .9;
+    printf("Load-Factor?\n");
+    scanf("%lf", &loadFactor);
+//    loadFactor = .9;
 
 
     int lfNumber = count / loadFactor;
@@ -257,7 +277,7 @@ int main() {
     hashTable.items = (Item **) calloc(tableSize, sizeof(Item *));
     hashTable.size = tableSize;
 
-    if (detailedMode)
+    if (detailedMode == 1)
         printf("Hashtable uzunlugu -> %d\n", hashTable.size);
 
 
@@ -281,43 +301,46 @@ int main() {
                 strcpy(item->value, buffer[0]);
 
                 int insertTryCount = insert(hashTable, item);
-                printf("%s, %d. denemede tabloya insert edildi! \n", item -> key, insertTryCount);
+                if (detailedMode == 1)
+                    printf("%s, %d. denemede tabloya insert edildi! \n", item -> key, insertTryCount);
                 key = strtok(NULL, " \r\n");
             }
         }
     }
 
-    if (detailedMode)
+    if (detailedMode == 1)
         printTable(hashTable);
 
 
-    while (flag) {
-        char key[255];
+    while (flag == 1) {
         char buffer[3][255];
-        strcpy(buffer[1], "none");
-        int idx = 0;
-        fflush(stdin);
-        fflush(stdout);
-        printf("Lutfen aramanizi yapiniz. \n");
-        fgets(key, sizeof(key), stdin);
+        int conditional = 0;
 
-        char *temp = NULL;
-        temp = strtok(key, " \n");
-        while (temp != NULL) {
-            strcpy(buffer[idx++], temp);
-            temp = strtok(NULL, " \n");
+        printf("Aramaniz kosullu olacaksa 1, tek key aratacaksaniz lutfen 0 tuslayiniz! \n");
+        scanf("%d", &conditional);
+
+        if (conditional == 1) {
+            printf("Lutfen birinci key'i giriniz! \n");
+            scanf("%s", buffer[0]);
+
+            printf("Lutfen kondisyonunuzu giriniz! \n");
+            scanf("%s", buffer[1]);
+
+            printf("Lutfen ikinci key'i giriniz! \n");
+            scanf("%s", buffer[2]);
+        } else {
+            printf("Lutfen birinci key'i giriniz! \n");
+            scanf("%s", buffer[0]);
         }
 
-        if (strcmp(buffer[1], "none") == 0)
-            search(hashTable, key);
+        if (conditional == 0)
+            search(hashTable, buffer[0]);
         else if (strcmp(buffer[1], "ve") == 0)
             searchForAnd(hashTable, buffer[0], buffer[2]);
-        else if (strcmp(buffer[1], "ve") == 0)
+        else if (strcmp(buffer[1], "veya") == 0)
             searchForOr(hashTable, buffer[0], buffer[2]);
         else
             printf("Hatali bir giris yaptiniz.");
-
-        searchForOr(hashTable, buffer[0], buffer[2]);
 
         printf("Aramaya devam etmek istiyor musunuz? \n");
         printf("0 - HAYIR \n");
