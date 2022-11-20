@@ -16,14 +16,13 @@ struct HashTable {
 
 struct Link {
     char value[255];
-    int collison;
+    int collision;
 } typedef Link;
 
 struct LinkHashTable {
     Link **links;
     int size;
 } typedef LinkHashTable;
-
 
 int isPrime(int num) {
     int i = 2, isPrime = 1;
@@ -82,6 +81,9 @@ int getIdxOfKey(HashTable hashTable, char *key) {
     const int constIdx = idx;
     int flag = 1;
 
+    if (hashTable.items[idx] == NULL)
+        return -1;
+
     if (strcmp(hashTable.items[idx]->key, key) == 0)
         return idx;
     else {
@@ -104,11 +106,6 @@ int getIdxOfKey(HashTable hashTable, char *key) {
         else
             return idx;
     }
-}
-
-void search(HashTable hashTable, char *key) {
-    int idx = getIdxOfKey(hashTable, key);
-    idx == -1 ? printf("Bulunamadi") : printList(hashTable.items[idx]);
 }
 
 void errorOnInsert() {
@@ -166,14 +163,23 @@ void insertForLinkHashTable(LinkHashTable table, Link *link) {
         idx++;
     }
     if (constIdx != idx)
-        table.links[constIdx]->collison = 1;
+        table.links[constIdx]->collision = 1;
 
     table.links[idx] = link;
+}
+
+void search(HashTable hashTable, char *key) {
+    int idx = getIdxOfKey(hashTable, key);
+    idx == -1 ? printf("Bulunamadi \n") : printList(hashTable.items[idx]);
 }
 
 void searchForAnd(HashTable table, char *key1, char *key2) {
     int idxOfKey1 = getIdxOfKey(table, key1);
     int idxOfKey2 = getIdxOfKey(table, key2);
+    int i;
+
+    if (idxOfKey1 == -1 || idxOfKey2 == -1)
+        return;
 
     LinkHashTable linkHashTable;
     linkHashTable.links = (Link **) calloc(255, sizeof(Link));
@@ -186,35 +192,44 @@ void searchForAnd(HashTable table, char *key1, char *key2) {
         insertForLinkHashTable(linkHashTable, link);
         head = head->next;
     }
+
     head = table.items[idxOfKey2];
     while (head != NULL) {
         int idxOfSearch = hash(head->value, strlen(head->value), linkHashTable.size);
 
         if (linkHashTable.links[idxOfSearch] != NULL &&
-        strcmp(head->value, linkHashTable.links[idxOfSearch]->value) == 0) {
+            strcmp(head->value, linkHashTable.links[idxOfSearch]->value) == 0) {
             printf("%s \n", head->value);
-        } else if ( linkHashTable.links[idxOfSearch] != NULL &&
-                    linkHashTable.links[idxOfSearch]->collison == 1) {
+        } else if (linkHashTable.links[idxOfSearch] != NULL &&
+                   linkHashTable.links[idxOfSearch]->collision == 1) {
             int constIdx = idxOfSearch;
             idxOfSearch++;
-            while ( constIdx != idxOfSearch &&
-                    strcmp(head->value, linkHashTable.links[idxOfSearch]->value) == 0) {
+            while (constIdx != idxOfSearch &&
+                   strcmp(head->value, linkHashTable.links[idxOfSearch]->value) == 0) {
                 idxOfSearch++;
                 idxOfSearch = idxOfSearch % linkHashTable.size;
             }
             if (constIdx != idxOfSearch)
                 printf("%s \n", head->value);
         }
-
-
         head = head->next;
     }
+    for (i = 0; i < linkHashTable.size; i++)
+        free(linkHashTable.links[i]);
 }
 
 void searchForOr(HashTable table, char *key1, char *key2) {
 
     int idxOfKey1 = getIdxOfKey(table, key1);
     int idxOfKey2 = getIdxOfKey(table, key2);
+    int i;
+
+    if (idxOfKey1 == -1 && idxOfKey2 == -1)
+        return;
+    if (idxOfKey1 == -1 || idxOfKey2 == -1) {
+        idxOfKey2 == -1 ? printList(table.items[idxOfKey1]) : printList(table.items[idxOfKey2]);
+        return;
+    }
 
     LinkHashTable linkHashTable;
     linkHashTable.links = (Link **) calloc(255, sizeof(Link));
@@ -234,19 +249,20 @@ void searchForOr(HashTable table, char *key1, char *key2) {
         insertForLinkHashTable(linkHashTable, link);
         head = head->next;
     }
-    int i;
-    for (i = 0; i < 255; i++)
+    for (i = 0; i < linkHashTable.size; i++)
         if (linkHashTable.links[i] != NULL)
             printf("%s \n", linkHashTable.links[i]->value);
+    for (i = 0; i < linkHashTable.size; i++)
+        free(linkHashTable.links[i]);
 }
 
 int main() {
 
     FILE *fp;
     fp = fopen("Sample.txt", "r");
-    char line[255], tmp[1];
+    char line[255];
     double loadFactor;
-    int count = 0, flag = 1, detailedMode = 0;
+    int count = 0, flag = 1, detailedMode = 0, i;
 
     printf("Detayli modda calistirmak icin lutfen 1'e basiniz!\n"
            "Normal modda devam etmek icin lutfen 0'a basiniz!\n");
@@ -267,7 +283,6 @@ int main() {
     count /= 2;
     printf("Load-Factor?\n");
     scanf("%lf", &loadFactor);
-//    loadFactor = .9;
 
 
     int lfNumber = count / loadFactor;
@@ -278,8 +293,7 @@ int main() {
     hashTable.size = tableSize;
 
     if (detailedMode == 1)
-        printf("Hashtable uzunlugu -> %d\n", hashTable.size);
-
+        printf("Hashtable uzunlugu -> %d\n\n\n", hashTable.size);
 
 
     fp = fopen("Sample.txt", "r");
@@ -302,14 +316,17 @@ int main() {
 
                 int insertTryCount = insert(hashTable, item);
                 if (detailedMode == 1)
-                    printf("%s, %d. denemede tabloya insert edildi! \n", item -> key, insertTryCount);
+                    printf("%s, %d. denemede tabloya insert edildi! \n", item->key, insertTryCount);
                 key = strtok(NULL, " \r\n");
             }
         }
     }
 
-    if (detailedMode == 1)
+    if (detailedMode == 1) {
+        printf("\n\n");
         printTable(hashTable);
+        printf("\n\n");
+    }
 
 
     while (flag == 1) {
@@ -348,5 +365,7 @@ int main() {
         scanf("%d", &flag);
     }
 
+    for (i = 0; i < hashTable.size; i++)
+        free(hashTable.items[i]);
     return 0;
 }
